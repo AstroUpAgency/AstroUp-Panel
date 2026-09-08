@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Astroup Notion Workspace (Auto Cloud)</title>
+
+  <!-- Supabase JS Client oficial -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    :root {
+      --bg-sidebar: #f7f7f5;
+      --bg-main: #ffffff;
+      --border: #e9e9e7;
+      --border-dark: #d3d1cb;
+      --text: #37352f;
+      --text-muted: #787774;
+      --hover: rgba(55, 53, 47, 0.08);
+      --primary: #2383e2;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body { display: flex; height: 100vh; width: 100vw; background: var(--bg-main); color: var(--text); overflow: hidden; }
+
+    /* SIDEBAR */
+    aside {
+      width: 290px;
+      min-width: 290px;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+
+    .brand {
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .brand img { max-height: 26px; width: auto; object-fit: contain; }
+    .brand span { font-weight: 700; font-size: 14px; }
+
+    .search-box { padding: 10px 12px 4px; }
+    .search-box input {
+      width: 100%;
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 13px;
+      background: #fff;
+      outline: none;
+    }
+
+    .nav-list { padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: var(--text);
+      font-size: 13.5px;
+      cursor: pointer;
+      text-align: left;
+    }
+    .nav-item:hover { background: var(--hover); }
+    .nav-item.active { background: var(--hover); font-weight: 600; }
+
+    .tree-section { flex: 1; overflow-y: auto; padding: 4px 10px 12px; }
+    .tree-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .btn-icon {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 16px;
+      border-radius: 4px;
+      padding: 0 4px;
+    }
+    .btn-icon:hover { background: var(--hover); color: var(--text); }
+
+    .tree-node {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      margin-bottom: 2px;
+    }
+    .tree-node:hover { background: var(--hover); }
+    .tree-node.active { background: var(--hover); font-weight: 600; }
+    .node-actions { display: flex; gap: 2px; opacity: 0; }
+    .tree-node:hover .node-actions { opacity: 1; }
+
+    .sub-tree {
+      padding-left: 16px;
+      border-left: 1px solid var(--border);
+      margin-left: 12px;
+      margin-top: 2px;
+    }
+
+    /* MAIN */
+    main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    header {
+      height: 48px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      font-size: 13px;
+      background: #fff;
+    }
+    .cloud-status { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+    .cloud-dot { width: 8px; height: 8px; border-radius: 50%; background: #9ca3af; }
+    .cloud-dot.online { background: #22c55e; }
+    .cloud-dot.syncing { background: #f59e0b; }
+
+    .header-actions { display: flex; gap: 8px; }
+    .btn-action {
+      padding: 5px 12px;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12.5px;
+    }
+    .btn-action:hover { background: var(--hover); }
+
+    .view-area { flex: 1; overflow-y: auto; display: none; padding: 40px 60px; }
+    .view-area.active { display: block; }
+
+    /* PAGE VIEW */
+    .page-container { max-width: 860px; margin: 0 auto; }
+    .page-header-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .icon-selector {
+      font-size: 32px;
+      cursor: pointer;
+      background: transparent;
+      border: none;
+      outline: none;
+      padding: 4px;
+      border-radius: 6px;
+    }
+    .icon-selector:hover { background: var(--hover); }
+
+    .title-input {
+      font-size: 34px;
+      font-weight: 700;
+      border: none;
+      outline: none;
+      width: 100%;
+      color: var(--text);
+      background: transparent;
+    }
+    .title-input::placeholder { color: var(--border-dark); }
+
+    .props-panel {
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      row-gap: 8px;
+      column-gap: 16px;
+      padding: 10px 0 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 24px;
+      font-size: 13px;
+    }
+    .prop-lbl { color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+    .prop-val input, .prop-val select {
+      border: 1px solid transparent;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 13px;
+      width: 250px;
+      outline: none;
+      background: transparent;
+    }
+    .prop-val input:hover, .prop-val select:hover,
+    .prop-val input:focus, .prop-val select:focus {
+      border-color: var(--border);
+      background: #fafafa;
+    }
+
+    .subpage-container {
+      margin-bottom: 24px;
+      padding: 12px 14px;
+      background: #fafafa;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .subpage-label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      margin-right: 8px;
+      margin-bottom: 6px;
+    }
+    .chip:hover { background: var(--hover); }
+
+    /* MOTOR DE BLOQUES */
+    .blocks-container { display: flex; flex-direction: column; gap: 6px; min-height: 250px; }
+    .block-row { display: flex; align-items: flex-start; position: relative; border-radius: 4px; }
+    .block-handle {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      cursor: pointer;
+      color: var(--text-muted);
+      border-radius: 4px;
+      user-select: none;
+      font-size: 14px;
+    }
+    .block-row:hover .block-handle { opacity: 1; }
+    .block-handle:hover { background: var(--hover); color: var(--text); }
+
+    .block-content {
+      flex: 1;
+      min-height: 26px;
+      outline: none;
+      line-height: 1.5;
+      font-size: 15px;
+      padding: 2px 6px;
+    }
+    .block-content[data-type="h1"] { font-size: 24px; font-weight: 700; margin-top: 8px; }
+    .block-content[data-type="h2"] { font-size: 20px; font-weight: 600; margin-top: 6px; }
+    .block-content[data-type="h3"] { font-size: 17px; font-weight: 600; margin-top: 4px; }
+    .block-content[data-type="quote"] { border-left: 3px solid var(--text); padding-left: 12px; font-style: italic; }
+    .block-content[data-type="bullet"] { display: list-item; list-style-type: disc; margin-left: 20px; }
+
+    .todo-block-wrap { display: flex; align-items: center; gap: 8px; flex: 1; }
+    .todo-block-wrap input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+    .todo-text { flex: 1; outline: none; }
+    .todo-text.checked { text-decoration: line-through; color: var(--text-muted); }
+
+    .table-block-wrap { width: 100%; margin: 8px 0; }
+    .notion-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    .notion-table th, .notion-table td { border: 1px solid var(--border); padding: 6px 10px; outline: none; }
+    .notion-table th { background: #fafafa; font-weight: 600; }
+    .table-tools { display: flex; gap: 8px; margin-top: 6px; }
+    .btn-tbl { font-size: 11px; padding: 2px 8px; border: 1px solid var(--border); border-radius: 4px; background: white; cursor: pointer; }
+
+    /* SLASH MENU */
+    .slash-popup {
+      position: absolute;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+      width: 220px;
+      z-index: 100;
+      padding: 6px;
+      display: none;
+    }
+    .slash-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .slash-item:hover { background: var(--hover); }
+
+    /* CALENDARIO & DASHBOARD */
+    .cal-container { max-width: 1000px; margin: 0 auto; }
+    .cal-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 30px;
+    }
+    .cal-th { background: #fafafa; text-align: center; padding: 8px; font-size: 12px; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border); }
+    .cal-td {
+      min-height: 100px;
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 6px;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .cal-td:nth-child(7n) { border-right: none; }
+    .cal-td.empty { background: #fbfbfa; }
+    .cal-num { font-size: 11px; font-weight: 600; color: var(--text-muted); }
+
+    .cal-ev {
+      font-size: 11px;
+      padding: 3px 6px;
+      border-radius: 4px;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-weight: 500;
+    }
+    .ev-critical { background: #7f1d1d; color: #fee2e2; border: 1px solid #991b1b; }
+    .ev-high { background: #1e3a8a; color: #dbeafe; border: 1px solid #1e40af; }
+    .ev-medium { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+    .ev-optional { background: #f3f4f6; color: #4b5563; border: 1px dashed #9ca3af; }
+
+    .dashboard-panel {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+    }
+    .dash-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .dash-form { display: flex; gap: 8px; margin-bottom: 14px; }
+    .dash-form input { flex: 1; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13.5px; outline: none; }
+    .btn-primary { background: var(--primary); color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; }
+    
+    .todo-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-bottom: 6px;
+      background: #fafafa;
+      font-size: 13.5px;
+    }
+    .todo-item.done span { text-decoration: line-through; color: var(--text-muted); }
+  </style>
+</head>
+<body>
+
+  <!-- SIDEBAR -->
+  <aside>
+    <div class="brand">
+      <img src="https://www.astroup.es/assets/astroup-logo-CqTw9D0p.png" alt="Astroup">
+      <span>Astroup Cloud Hub</span>
+    </div>
+
+    <div class="search-box">
+      <input type="text" id="filter-input" placeholder="🔍 Buscar ficha..." oninput="filterTree()">
+    </div>
+
+    <div class="nav-list">
+      <button class="nav-item" onclick="showView('calendar')">📅 Calendario & Dashboard</button>
+    </div>
+
+    <div class="tree-section">
+      <div class="tree-header">
+        <span>Clientes Activos</span>
+        <button class="btn-icon" title="Crear Cliente Raíz" onclick="createNode(null)">+</button>
+      </div>
+      <div id="tree-container"></div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main>
+    <header>
+      <div class="cloud-status">
+        <span class="cloud-dot" id="cloud-dot"></span>
+        <span id="cloud-status-text">Conectando a la nube...</span>
+      </div>
+      <div class="header-actions">
+        <button class="btn-action" onclick="exportData()">Exportar JSON</button>
+      </div>
+    </header>
+
+    <!-- FICHA NOTION -->
+    <section id="doc-view" class="view-area active">
+      <div class="page-container">
+        <div class="page-header-row">
+          <button id="node-icon" class="icon-selector" onclick="changeEmoji()">📄</button>
+          <input type="text" id="node-title" class="title-input" placeholder="Nombre de la ficha..." oninput="saveCurrentNodeProps()">
+        </div>
+
+        <div class="props-panel">
+          <div class="prop-lbl">💼 Proyecto</div>
+          <div class="prop-val"><input type="text" id="prop-project" placeholder="Ej: Auditoría & SEO Web" oninput="saveCurrentNodeProps()"></div>
+
+          <div class="prop-lbl">🟢 Estado</div>
+          <div class="prop-val">
+            <select id="prop-status" onchange="saveCurrentNodeProps()">
+              <option value="Activo">🟢 Activo</option>
+              <option value="Mantenimiento">🟡 Mantenimiento</option>
+              <option value="Pausa">⚪ Pausa</option>
+            </select>
+          </div>
+
+          <div class="prop-lbl">📅 Mantenimiento</div>
+          <div class="prop-val"><input type="date" id="prop-date" onchange="saveCurrentNodeProps()"></div>
+
+          <div class="prop-lbl">⚙️ Tipo de Tarea</div>
+          <div class="prop-val">
+            <select id="prop-optional" onchange="saveCurrentNodeProps()">
+              <option value="mandatory">Obligatorio / Crítico</option>
+              <option value="optional">Opcional / Preventivo</option>
+            </select>
+          </div>
+
+          <div class="prop-lbl">🔍 Nivel de Revisión</div>
+          <div class="prop-val">
+            <select id="prop-review" onchange="saveCurrentNodeProps()">
+              <option value="maxima">🔴 Revisión Máxima (Urgente)</option>
+              <option value="alta">🔵 Revisión Alta</option>
+              <option value="estandar">⚪ Revisión Estándar</option>
+            </select>
+          </div>
+
+          <div class="prop-lbl">💰 Presupuesto / Tarifa</div>
+          <div class="prop-val"><input type="text" id="prop-budget" placeholder="Ej: 450 €/mes" oninput="saveCurrentNodeProps()"></div>
+        </div>
+
+        <div class="subpage-container">
+          <div class="subpage-label">Subpáginas</div>
+          <div id="subpages-wrap"></div>
+          <button class="btn-action" style="margin-top: 4px;" onclick="createNode(activeId)">+ Añadir subpágina</button>
+        </div>
+
+        <div id="blocks-engine" class="blocks-container"></div>
+      </div>
+    </section>
+
+    <!-- CALENDARIO + DASHBOARD -->
+    <section id="cal-view" class="view-area">
+      <div class="cal-container">
+        <div class="cal-bar">
+          <h2 id="cal-title" style="font-size: 20px; font-weight: 700;">Calendario</h2>
+          <div style="display: flex; gap: 6px;">
+            <button class="btn-action" onclick="changeMonth(-1)">&larr; Mes Anterior</button>
+            <button class="btn-action" onclick="changeMonth(1)">Mes Siguiente &rarr;</button>
+          </div>
+        </div>
+
+        <div class="cal-grid" id="cal-grid"></div>
+
+        <div class="dashboard-panel">
+          <div class="dash-top">
+            <h3 style="font-size: 16px; font-weight: 700;">📋 Tareas del Día</h3>
+            <span id="dash-date" style="font-size: 12px; color: var(--text-muted);"></span>
+          </div>
+          <div class="dash-form">
+            <input type="text" id="todo-text" placeholder="Añadir tarea, recordatorio o ajuste inmediato..." onkeypress="if(event.key==='Enter') addTodo()">
+            <button class="btn-primary" onclick="addTodo()">Agregar</button>
+          </div>
+          <div id="todo-list"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- MENÚ POPUP DE BLOQUES -->
+  <div id="slash-menu" class="slash-popup">
+    <div class="slash-item" onclick="applyBlockType('text')">📝 Texto normal</div>
+    <div class="slash-item" onclick="applyBlockType('h1')">📌 Encabezado 1</div>
+    <div class="slash-item" onclick="applyBlockType('h2')">📌 Encabezado 2</div>
+    <div class="slash-item" onclick="applyBlockType('h3')">📌 Encabezado 3</div>
+    <div class="slash-item" onclick="applyBlockType('bullet')">• Lista con viñeta</div>
+    <div class="slash-item" onclick="applyBlockType('todo')">☑️ Lista de tareas</div>
+    <div class="slash-item" onclick="applyBlockType('quote')">💬 Cita destacada</div>
+    <div class="slash-item" onclick="applyBlockType('table')">📊 Tabla estructurada</div>
+    <div class="slash-item" style="color: #eb5757;" onclick="deleteActiveBlock()">🗑️ Eliminar bloque</div>
+  </div>
+
+  <script>
+    // CREDENCIALES FIJAS PARA CONEXIÓN AUTOMÁTICA
+    const SUPABASE_PROJECT_URL = 'https://avxxvlebtqzowexniyab.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2eHh2bGVidHF6b3dleG5peWFiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg4NzA0MjAsImV4cCI6MjEwNDQ0NjQyMH0.3iCynCwrVLrGE0_bh7UwPlFZTPQu8g9EsPm6FZPatSw';
+
+    let supabaseClient = null;
+
+    let db = JSON.parse(localStorage.getItem('astroup_v3_store')) || {
+      nodes: [
+        {
+          id: 'cli-1',
+          parentId: null,
+          icon: '🏢',
+          title: 'Cliente Alpha Corp',
+          project: 'Web Corporativa & SEO',
+          status: 'Activo',
+          date: '2026-09-15',
+          isOptional: 'mandatory',
+          reviewLevel: 'maxima',
+          budget: '450 €/mes',
+          blocks: [
+            { id: 'b1', type: 'h2', content: 'Detalles del Mantenimiento' },
+            { id: 'b2', type: 'text', content: 'Sincronizado en tiempo real con la nube.' },
+            { id: 'b3', type: 'table', content: [['Servicio', 'Frecuencia', 'Estado'], ['Backups', 'Semanal', 'Al día'], ['Actualizaciones', 'Mensual', 'Programado']] },
+            { id: 'b4', type: 'todo', text: 'Revisar certificados SSL', checked: false }
+          ]
+        }
+      ],
+      todos: [
+        { id: 1, text: 'Revisión técnica de Alpha Corp', done: false }
+      ]
+    };
+
+    let activeId = db.nodes[0]?.id || null;
+    let targetBlockId = null;
+    let calDate = new Date();
+    let syncDebounceTimer = null;
+
+    // INICIALIZACIÓN AUTOMÁTICA
+    function initSupabase() {
+      try {
+        supabaseClient = window.supabase.createClient(SUPABASE_PROJECT_URL, SUPABASE_ANON_KEY);
+        setCloudIndicator('syncing', 'Descargando datos de la nube...');
+        pullFromCloud();
+      } catch (err) {
+        console.error('Error iniciando Supabase:', err);
+        setCloudIndicator('local', 'Error al conectar (Modo local)');
+      }
+    }
+
+    function setCloudIndicator(state, message) {
+      const dot = document.getElementById('cloud-dot');
+      const text = document.getElementById('cloud-status-text');
+      dot.className = 'cloud-dot ' + (state === 'online' ? 'online' : state === 'syncing' ? 'syncing' : '');
+      text.innerText = message;
+    }
+
+    // SINCRONIZACIÓN AUTOMÁTICA EN LA NUBE (DEBOUNCE 800ms)
+    function sync() {
+      localStorage.setItem('astroup_v3_store', JSON.stringify(db));
+
+      if (supabaseClient) {
+        setCloudIndicator('syncing', 'Guardando en la nube...');
+        clearTimeout(syncDebounceTimer);
+        syncDebounceTimer = setTimeout(async () => {
+          try {
+            const { error } = await supabaseClient
+              .from('workspaces')
+              .upsert({ id: 'primary_workspace', data: db, updated_at: new Date().toISOString() });
+
+            if (error) throw error;
+            setCloudIndicator('online', 'Sincronizado en la nube (' + new Date().toLocaleTimeString() + ')');
+          } catch (err) {
+            console.error('Error al subir datos:', err);
+            setCloudIndicator('syncing', 'Error de conexión (guardado en local)');
+          }
+        }, 800);
+      }
+    }
+
+    async function pullFromCloud() {
+      if (!supabaseClient) return;
+      try {
+        const { data, error } = await supabaseClient
+          .from('workspaces')
+          .select('data')
+          .eq('id', 'primary_workspace')
+          .single();
+
+        if (error && error.code !== 'PGRST116') throw error;
+
+        if (data && data.data) {
+          db = data.data;
+          localStorage.setItem('astroup_v3_store', JSON.stringify(db));
+          activeId = db.nodes[0]?.id || null;
+          renderTree();
+          if (activeId) selectNode(activeId);
+        }
+        setCloudIndicator('online', 'Conectado y sincronizado');
+      } catch (err) {
+        console.error('Error al descargar de la nube:', err);
+        setCloudIndicator('online', 'Conectado (usando copia local)');
+      }
+    }
+
+    // GESTIÓN DE PÁGINAS Y SUBPÁGINAS
+    function createNode(parentId = null) {
+      const newId = 'node-' + Date.now();
+      db.nodes.push({
+        id: newId,
+        parentId: parentId,
+        icon: '📄',
+        title: parentId ? 'Subpágina sin título' : 'Nuevo Cliente',
+        project: '',
+        status: 'Activo',
+        date: '',
+        isOptional: 'mandatory',
+        reviewLevel: 'estandar',
+        budget: '',
+        blocks: [{ id: 'b-' + Date.now(), type: 'text', content: '' }]
+      });
+      sync();
+      renderTree();
+      selectNode(newId);
+    }
+
+    function removeNode(id, event) {
+      if (event) event.stopPropagation();
+      db.nodes = db.nodes.filter(n => n.id !== id && n.parentId !== id);
+      sync();
+      renderTree();
+      if (activeId === id) {
+        activeId = db.nodes[0]?.id || null;
+        if (activeId) selectNode(activeId);
+      }
+    }
+
+    function selectNode(id) {
+      activeId = id;
+      showView('doc');
+      renderTree();
+
+      const node = db.nodes.find(n => n.id === id);
+      if (!node) return;
+
+      document.getElementById('node-icon').innerText = node.icon || '📄';
+      document.getElementById('node-title').value = node.title;
+      document.getElementById('prop-project').value = node.project || '';
+      document.getElementById('prop-status').value = node.status || 'Activo';
+      document.getElementById('prop-date').value = node.date || '';
+      document.getElementById('prop-optional').value = node.isOptional || 'mandatory';
+      document.getElementById('prop-review').value = node.reviewLevel || 'estandar';
+      document.getElementById('prop-budget').value = node.budget || '';
+
+      renderSubpageChips(node.id);
+      renderBlocks(node.blocks);
+    }
+
+    function saveCurrentNodeProps() {
+      if (!activeId) return;
+      const node = db.nodes.find(n => n.id === activeId);
+      if (!node) return;
+
+      node.title = document.getElementById('node-title').value;
+      node.project = document.getElementById('prop-project').value;
+      node.status = document.getElementById('prop-status').value;
+      node.date = document.getElementById('prop-date').value;
+      node.isOptional = document.getElementById('prop-optional').value;
+      node.reviewLevel = document.getElementById('prop-review').value;
+      node.budget = document.getElementById('prop-budget').value;
+
+      sync();
+      renderTree();
+    }
+
+    function changeEmoji() {
+      const emojis = ['🏢', '🚀', '💻', '⚡', '📊', '🔧', '🎯', '📄', '📦'];
+      const chosen = prompt('Elige un emoji para esta ficha:', emojis[Math.floor(Math.random() * emojis.length)]);
+      if (chosen) {
+        const node = db.nodes.find(n => n.id === activeId);
+        if (node) {
+          node.icon = chosen;
+          document.getElementById('node-icon').innerText = chosen;
+          sync();
+          renderTree();
+        }
+      }
+    }
+
+    // ÁRBOL LATERAL
+    function renderTree(filter = '') {
+      const container = document.getElementById('tree-container');
+      container.innerHTML = '';
+
+      const roots = db.nodes.filter(n => n.parentId === null && n.title.toLowerCase().includes(filter.toLowerCase()));
+      roots.forEach(root => container.appendChild(buildTreeElement(root)));
+    }
+
+    function buildTreeElement(node) {
+      const wrap = document.createElement('div');
+      const item = document.createElement('div');
+      item.className = `tree-node ${node.id === activeId ? 'active' : ''}`;
+      item.innerHTML = `
+        <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${node.icon || '📄'} ${node.title || 'Sin título'}</span>
+        <div class="node-actions">
+          <button class="btn-icon" title="Subpágina" onclick="event.stopPropagation(); createNode('${node.id}')">+</button>
+          <button class="btn-icon" title="Eliminar" onclick="removeNode('${node.id}', event)">×</button>
+        </div>
+      `;
+      item.onclick = () => selectNode(node.id);
+      wrap.appendChild(item);
+
+      const children = db.nodes.filter(n => n.parentId === node.id);
+      if (children.length > 0) {
+        const sub = document.createElement('div');
+        sub.className = 'sub-tree';
+        children.forEach(c => sub.appendChild(buildTreeElement(c)));
+        wrap.appendChild(sub);
+      }
+      return wrap;
+    }
+
+    function filterTree() {
+      const term = document.getElementById('filter-input').value;
+      renderTree(term);
+    }
+
+    function renderSubpageChips(parentId) {
+      const wrap = document.getElementById('subpages-wrap');
+      wrap.innerHTML = '';
+      const subs = db.nodes.filter(n => n.parentId === parentId);
+      subs.forEach(s => {
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        chip.innerHTML = `${s.icon || '📄'} ${s.title || 'Subpágina'}`;
+        chip.onclick = () => selectNode(s.id);
+        wrap.appendChild(chip);
+      });
+    }
+
+    // MOTOR DE BLOQUES
+    function renderBlocks(blocks) {
+      const container = document.getElementById('blocks-engine');
+      container.innerHTML = '';
+
+      if (!blocks || blocks.length === 0) {
+        blocks = [{ id: 'b-' + Date.now(), type: 'text', content: '' }];
+      }
+
+      blocks.forEach(block => {
+        const row = document.createElement('div');
+        row.className = 'block-row';
+        row.dataset.blockId = block.id;
+
+        const handle = document.createElement('div');
+        handle.className = 'block-handle';
+        handle.innerText = '⋮⋮';
+        handle.onclick = (e) => openSlashMenu(block.id, e);
+        row.appendChild(handle);
+
+        if (block.type === 'todo') {
+          const wrap = document.createElement('div');
+          wrap.className = 'todo-block-wrap';
+          const chk = document.createElement('input');
+          chk.type = 'checkbox';
+          chk.checked = !!block.checked;
+          const txt = document.createElement('div');
+          txt.className = 'todo-text ' + (block.checked ? 'checked' : '');
+          txt.contentEditable = true;
+          txt.innerText = block.text || '';
+          
+          chk.onchange = () => {
+            block.checked = chk.checked;
+            txt.className = 'todo-text ' + (chk.checked ? 'checked' : '');
+            sync();
+          };
+          txt.oninput = () => { block.text = txt.innerText; sync(); };
+          txt.onkeydown = (e) => handleBlockKeydown(e, block.id);
+
+          wrap.appendChild(chk);
+          wrap.appendChild(txt);
+          row.appendChild(wrap);
+
+        } else if (block.type === 'table') {
+          const wrap = document.createElement('div');
+          wrap.className = 'table-block-wrap';
+          const tbl = document.createElement('table');
+          tbl.className = 'notion-table';
+
+          const matrix = block.content || [['Col 1', 'Col 2'], ['', '']];
+          matrix.forEach((rowArr, rIdx) => {
+            const tr = document.createElement('tr');
+            rowArr.forEach((cellVal, cIdx) => {
+              const cell = document.createElement(rIdx === 0 ? 'th' : 'td');
+              cell.contentEditable = true;
+              cell.innerText = cellVal;
+              cell.oninput = () => {
+                matrix[rIdx][cIdx] = cell.innerText;
+                block.content = matrix;
+                sync();
+              };
+              tr.appendChild(cell);
+            });
+            tbl.appendChild(tr);
+          });
+
+          const tools = document.createElement('div');
+          tools.className = 'table-tools';
+          tools.innerHTML = `
+            <button class="btn-tbl" onclick="addTableRow('${block.id}')">+ Fila</button>
+            <button class="btn-tbl" onclick="addTableCol('${block.id}')">+ Columna</button>
+          `;
+          wrap.appendChild(tbl);
+          wrap.appendChild(tools);
+          row.appendChild(wrap);
+
+        } else {
+          const el = document.createElement('div');
+          el.className = 'block-content';
+          el.contentEditable = true;
+          el.dataset.type = block.type;
+          el.innerText = block.content || '';
+          el.oninput = () => { block.content = el.innerText; sync(); };
+          el.onkeydown = (e) => handleBlockKeydown(e, block.id);
+          row.appendChild(el);
+        }
+
+        container.appendChild(row);
+      });
+    }
+
+    function handleBlockKeydown(e, blockId) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        const node = db.nodes.find(n => n.id === activeId);
+        const idx = node.blocks.findIndex(b => b.id === blockId);
+        const newBlock = { id: 'b-' + Date.now(), type: 'text', content: '' };
+        node.blocks.splice(idx + 1, 0, newBlock);
+        sync();
+        renderBlocks(node.blocks);
+        setTimeout(() => {
+          const el = document.querySelector(`[data-block-id="${newBlock.id}"] [contenteditable="true"]`);
+          if (el) el.focus();
+        }, 20);
+      }
+      if (e.key === 'Backspace' && e.target.innerText === '') {
+        const node = db.nodes.find(n => n.id === activeId);
+        if (node.blocks.length > 1) {
+          e.preventDefault();
+          node.blocks = node.blocks.filter(b => b.id !== blockId);
+          sync();
+          renderBlocks(node.blocks);
+        }
+      }
+      if (e.key === '/') openSlashMenu(blockId, e);
+    }
+
+    function openSlashMenu(blockId, e) {
+      targetBlockId = blockId;
+      const menu = document.getElementById('slash-menu');
+      menu.style.display = 'block';
+      menu.style.top = `${e.clientY + window.scrollY}px`;
+      menu.style.left = `${Math.min(e.clientX, window.innerWidth - 240)}px`;
+    }
+
+    window.addEventListener('click', (e) => {
+      if (!e.target.closest('#slash-menu') && !e.target.closest('.block-handle')) {
+        document.getElementById('slash-menu').style.display = 'none';
+      }
+    });
+
+    function applyBlockType(type) {
+      const node = db.nodes.find(n => n.id === activeId);
+      const block = node.blocks.find(b => b.id === targetBlockId);
+      if (!block) return;
+
+      block.type = type;
+      if (type === 'todo') {
+        block.text = block.content || '';
+        block.checked = false;
+      } else if (type === 'table') {
+        block.content = [['Título 1', 'Título 2'], ['', '']];
+      }
+      sync();
+      renderBlocks(node.blocks);
+      document.getElementById('slash-menu').style.display = 'none';
+    }
+
+    function deleteActiveBlock() {
+      const node = db.nodes.find(n => n.id === activeId);
+      node.blocks = node.blocks.filter(b => b.id !== targetBlockId);
+      if (node.blocks.length === 0) node.blocks.push({ id: 'b-' + Date.now(), type: 'text', content: '' });
+      sync();
+      renderBlocks(node.blocks);
+      document.getElementById('slash-menu').style.display = 'none';
+    }
+
+    function addTableRow(blockId) {
+      const node = db.nodes.find(n => n.id === activeId);
+      const block = node.blocks.find(b => b.id === blockId);
+      const cols = block.content[0].length;
+      block.content.push(new Array(cols).fill(''));
+      sync();
+      renderBlocks(node.blocks);
+    }
+
+    function addTableCol(blockId) {
+      const node = db.nodes.find(n => n.id === activeId);
+      const block = node.blocks.find(b => b.id === blockId);
+      block.content.forEach((row, i) => row.push(i === 0 ? `Col ${row.length + 1}` : ''));
+      sync();
+      renderBlocks(node.blocks);
+    }
+
+    // CALENDARIO
+    function renderCalendar() {
+      const grid = document.getElementById('cal-grid');
+      grid.innerHTML = '';
+
+      const y = calDate.getFullYear();
+      const m = calDate.getMonth();
+      const months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+      document.getElementById('cal-title').innerText = `${months[m]} ${y}`;
+
+      const days = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+      days.forEach(d => {
+        const th = document.createElement('div');
+        th.className = 'cal-th';
+        th.innerText = d;
+        grid.appendChild(th);
+      });
+
+      const offset = (new Date(y, m, 1).getDay() + 6) % 7;
+      const total = new Date(y, m + 1, 0).getDate();
+
+      for (let i = 0; i < offset; i++) {
+        const empty = document.createElement('div');
+        empty.className = 'cal-td empty';
+        grid.appendChild(empty);
+      }
+
+      for (let d = 1; d <= total; d++) {
+        const td = document.createElement('div');
+        td.className = 'cal-td';
+        const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        td.innerHTML = `<span class="cal-num">${d}</span>`;
+
+        const events = db.nodes.filter(n => n.date === dateStr);
+        events.forEach(ev => {
+          const badge = document.createElement('div');
+          badge.className = 'cal-ev ' + getEvColor(ev);
+          badge.innerText = `${ev.icon || '📄'} ${ev.isOptional === 'optional' ? '[Opc] ' : ''}${ev.title}`;
+          badge.onclick = () => selectNode(ev.id);
+          td.appendChild(badge);
+        });
+
+        grid.appendChild(td);
+      }
+    }
+
+    function getEvColor(item) {
+      if (item.isOptional === 'optional') return 'ev-optional';
+      if (item.reviewLevel === 'maxima') return 'ev-critical';
+      if (item.reviewLevel === 'alta') return 'ev-high';
+      return 'ev-medium';
+    }
+
+    function changeMonth(delta) {
+      calDate.setMonth(calDate.getMonth() + delta);
+      renderCalendar();
+    }
+
+    // DASHBOARD DE TAREAS
+    function renderTodos() {
+      const container = document.getElementById('todo-list');
+      document.getElementById('dash-date').innerText = new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      container.innerHTML = '';
+
+      db.todos.forEach(t => {
+        const item = document.createElement('div');
+        item.className = `todo-item ${t.done ? 'done' : ''}`;
+        item.innerHTML = `
+          <div style="display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleTodo(${t.id})">
+            <span>${t.text}</span>
+          </div>
+          <button class="btn-icon" style="color:#eb5757;" onclick="deleteTodo(${t.id})">×</button>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function addTodo() {
+      const input = document.getElementById('todo-text');
+      const txt = input.value.trim();
+      if (!txt) return;
+
+      db.todos.push({ id: Date.now(), text: txt, done: false });
+      input.value = '';
+      sync();
+      renderTodos();
+    }
+
+    function toggleTodo(id) {
+      const t = db.todos.find(item => item.id === id);
+      if (t) {
+        t.done = !t.done;
+        sync();
+        renderTodos();
+      }
+    }
+
+    function deleteTodo(id) {
+      db.todos = db.todos.filter(t => t.id !== id);
+      sync();
+      renderTodos();
+    }
+
+    // VISTAS Y BACKUP
+    function showView(view) {
+      document.querySelectorAll('.view-area').forEach(v => v.classList.remove('active'));
+      if (view === 'doc') document.getElementById('doc-view').classList.add('active');
+      if (view === 'calendar') {
+        document.getElementById('cal-view').classList.add('active');
+        renderCalendar();
+        renderTodos();
+      }
+    }
+
+    function exportData() {
+      const blob = new Blob([JSON.stringify(db, null, 2)], { type: "application/json" });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `astroup_cloud_backup_${Date.now()}.json`;
+      a.click();
+    }
+
+    // ARRANQUE AUTOMÁTICO
+    initSupabase();
+    renderTree();
+    if (activeId) selectNode(activeId);
+  </script>
+</body>
+</html>
